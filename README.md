@@ -27,7 +27,7 @@ Is pretty standard. I randomly initialised the three weights of each node in the
 
 That process is repeated for each image with the end result looking like this (like I said, mostly brown and black with a bit of sky blue thrown in on the bottom left):
 
-![som_trained](https://user-images.githubusercontent.com/2457362/34902301-261ddae4-f85c-11e7-89c9-41695c0943b0.png)
+![som_trained](https://user-images.githubusercontent.com/2457362/34905430-a86ea4ee-f89b-11e7-9afb-e466c35f78fa.png)
 
 ### Laying the photos out on the SOM
 
@@ -59,7 +59,7 @@ Because this algorithm gives priority to images that have the closest match to t
 
 Here's the representitive colour of each photo plotted at the centroid of its computed footprint:
 
-![layout](https://user-images.githubusercontent.com/2457362/34902260-26ecadfc-f85b-11e7-93f2-53bb9ba99cb5.png)
+![layout](https://user-images.githubusercontent.com/2457362/34905433-ae5eb826-f89b-11e7-984c-c25e911fdf19.png)
 
 And this shows the footprint of each image laid out in the collage:
 
