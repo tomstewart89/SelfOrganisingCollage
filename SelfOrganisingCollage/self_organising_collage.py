@@ -16,7 +16,7 @@ for f in os.listdir(directory):
 
 
 
-    som = SelfOrganisingMap(50,35,3,50,10) #(50,35,3,50,20) # (9,12,3,3,5)
+som = SelfOrganisingMap(50,35,3,50,10) #(50,35,3,50,20) # (9,12,3,3,5)
 
 random.shuffle(photos)
 

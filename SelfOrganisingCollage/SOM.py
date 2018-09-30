@@ -1,22 +1,24 @@
-import numpy as np
 import math as m
 import matplotlib.pyplot as plt
 import torch
+from timeit import TimeIt
 
-device = torch.device("cuda")
+device = torch.device("cpu")
+
 
 class SelfOrganisingMap:
     def __init__(self, shape, sigma=5., eta=5.):
-        self.grid = torch.rand(*shape)
+        self.grid = torch.rand(*shape,device=device)
         self.sigma = sigma
         self.eta = eta
 
         self.row_idx, self.col_idx = torch.meshgrid([torch.arange(shape[0]), torch.arange(shape[1])])
-        self.row_idx, self.col_idx = self.row_idx.float(), self.col_idx.float()
+        self.row_idx = self.row_idx.to(torch.float).to(device)
+        self.col_idx = self.col_idx.to(torch.float).to(device)
 
     # returns the row / column indicies of the best matching unit for a given datapoint
     def get_BMU(self, x):
-        idx = torch.argmin(torch.norm(self.grid - torch.Tensor(x), dim=2))
+        idx = torch.argmin(torch.norm(self.grid - torch.tensor(x, device=device), dim=2))
         return idx / self.grid.shape[1], idx % self.grid.shape[1]
 
     def get_BMU_dist(self, x):
@@ -37,7 +39,7 @@ class SelfOrganisingMap:
         alpha = self.gauss(self.dist(r,c), 0, self.sigma).float()
 
         # now calculate how much to add to each of the neighbouring units
-        delta = alpha[:,:, np.newaxis] * (x - self.grid)
+        delta = alpha.unsqueeze(2) * (x - self.grid)
 
         # lastly update the grid
         self.grid += (delta * self.eta)
@@ -50,7 +52,7 @@ if __name__ == '__main__':
 
     r,c = som.get_BMU(x)
     alpha = som.gauss(som.dist(r,c),0,som.sigma)
-    delta = alpha[:,:, np.newaxis] * (torch.Tensor(x) - som.grid)
+    delta = alpha.unsqueeze(2) * (torch.tensor(x, device=device) - som.grid)
     updated = som.grid + delta * som.eta
 
     # Show the update process
@@ -62,6 +64,8 @@ if __name__ == '__main__':
     plt.show()
 
     # Show an updated map
-    [som.update(torch.rand(3)) for _ in range(4000)]
+    with TimeIt('mapping'):
+        [som.update(torch.rand(3,device=device)) for _ in range(100000)]
+    
     plt.imshow(som.grid)
     plt.show()
