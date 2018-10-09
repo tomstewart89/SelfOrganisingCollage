@@ -1,14 +1,14 @@
 import math as m
 import matplotlib.pyplot as plt
 import torch
-from timeit import TimeIt
+from utils import TimeIt
 
-device = torch.device("cpu")
+device = torch.device("cuda")
 
 
 class SelfOrganisingMap:
     def __init__(self, shape, sigma=5., eta=5.):
-        self.grid = torch.rand(*shape,device=device)
+        self.grid = torch.rand(*shape, device=device)
         self.sigma = sigma
         self.eta = eta
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     # Show an updated map
     with TimeIt('mapping'):
-        [som.update(torch.rand(3,device=device)) for _ in range(100000)]
+        [som.update(torch.rand(1000,device=device)) for _ in range(10000)]
     
-    plt.imshow(som.grid)
+    plt.imshow(som.grid[:,:,:3])
     plt.show()

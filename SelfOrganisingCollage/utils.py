@@ -1,5 +1,10 @@
 import time
 
+
+def flatten(list_of_lists):
+    return [item for l in list_of_lists for item in l]
+
+
 # Execution Timing
 class TimeIt:
     def __init__(self, s):
