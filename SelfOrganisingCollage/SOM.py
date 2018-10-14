@@ -47,7 +47,7 @@ class SelfOrganisingMap:
 
 
 if __name__ == '__main__':
-    som = SelfOrganisingMap(shape=[100,100,3], sigma=50., eta=10.)
+    som = SelfOrganisingMap(shape=[35,50,3], sigma=5., eta=1.)
 
     x = [0.9, 0.4, 0.0]
 
@@ -65,8 +65,6 @@ if __name__ == '__main__':
     plt.show()
 
     # Show an updated map
-    for _ in tqdm(range(100000), unit='feature'):
+    for i in tqdm(range(10000), unit='feature'):
         som.update(torch.rand(3, device=device))
-    
-    plt.imshow(som.grid[:,:,:3])
-    plt.show()
+        plt.imsave('som_training/som_%i' % i, som.grid)
