@@ -2,33 +2,79 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
+import os
+import random
+from tqdm import tqdm
+import torch
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 from photo_library import PhotoLibrary
 from SOM import SelfOrganisingMap
 from feature_extraction import FeatureExtractor
+from draw_samples import sample_from_unit_cube, sample_furthest_from_centroid
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run PPO on your selected environment')
-    parser.add_argument('--directory', default='/home/tom/Pictures/google_photos', type=str)
-    parser.add_argument('--width', default=1440, type=int)
-    parser.add_argument('--height', default=720, type=int)
+    parser = argparse.ArgumentParser(description='Make a lovely colourful collage from your photo library')
+    parser.add_argument('--directory', default='/home/tom/Pictures/test_pics', type=str)
+    parser.add_argument('--width', default=50, type=int)
+    parser.add_argument('--height', default=35, type=int)
     parser.add_argument('--feature', default='mean_color', type=str)
     args = parser.parse_args()
 
     library = PhotoLibrary(args.directory)
     extractor = FeatureExtractor.factory(args.feature)
+    som = SelfOrganisingMap(shape=[args.height, args.width, extractor.feature_dim], sigma=5., eta=1.)
 
-    feature_dict = extractor.process_library(library)
+    try:
+        with open(os.path.join(args.directory, args.feature), "rb") as f:
+            feature_dict = pickle.load(f)
 
-    som = SelfOrganisingMap(shape=[args.height, args.width, extractor.feature_dim], sigma=50., eta=10.)
+    except FileNotFoundError:
+        feature_dict = extractor.process_library(library)
+        with open(os.path.join(args.directory, args.feature), "wb") as f:
+            pickle.dump(feature_dict, f)
 
-    for _, feature in feature_dict.items():
-        som.update(feature.cuda())
+    sample = sample_from_unit_cube(feature_dict, 1000)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    for feature in sample:
+        ax.scatter(feature[0], feature[1], feature[2], c=feature, s=2)
+
+    plt.show()
+
+    for _ in range(20):
+        for feature in sample:
+            som.update(feature.cuda())
 
     plt.imshow(som.grid)
     plt.show()
 
     i = 5
+    #
+
+    # for i in range(20):
+    #     for feature in features_tensor[sampled,:]:
+    #         som.update(feature.cuda())
+
+    # for i in range(10):
+    #     for feature in tqdm(sorted(list(feature_dict.values()), key=lambda x: torch.norm(x-x.mean()), reverse=True), unit='image'):
+    #         som.update(feature.cuda())
+    # plt.imsave('som_%i' % i, som.grid/ som.grid.max())
+
+    # plt.imshow(som.grid)
+    # plt.show()
+
+
+
+
+
+
+
+
+
     # random.shuffle(photos)
 
 

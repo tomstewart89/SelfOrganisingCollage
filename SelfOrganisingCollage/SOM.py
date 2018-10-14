@@ -2,6 +2,8 @@ import math as m
 import matplotlib.pyplot as plt
 import torch
 from utils import TimeIt
+from tqdm import tqdm
+
 
 device = torch.device("cuda")
 
@@ -12,9 +14,7 @@ class SelfOrganisingMap:
         self.sigma = sigma
         self.eta = eta
 
-        self.row_idx, self.col_idx = torch.meshgrid([torch.arange(shape[0]), torch.arange(shape[1])])
-        self.row_idx = self.row_idx.to(torch.float).to(device)
-        self.col_idx = self.col_idx.to(torch.float).to(device)
+        self.elem_idx = torch.stack(torch.meshgrid([torch.arange(shape[0]), torch.arange(shape[1])]), dim=2).float().to(device)
 
     # returns the row / column indicies of the best matching unit for a given datapoint
     def get_BMU(self, x):
@@ -26,7 +26,8 @@ class SelfOrganisingMap:
 
     # returns an array representing the distance of each cell from the given row/col
     def dist(self, row, col):
-        return torch.norm(torch.abs(torch.stack([self.row_idx - float(row), self.col_idx - float(col)], dim=2)), dim=2)
+        idx = torch.Tensor([row, col]).float().to(device)
+        return torch.norm(torch.abs(self.elem_idx - idx), dim=2)
 
     def gauss(self, x, mu, sigma):
         return 1. / m.sqrt(2. * sigma * m.pi) * torch.exp(-torch.pow((x-mu),2) / (2.*sigma))
@@ -48,7 +49,7 @@ class SelfOrganisingMap:
 if __name__ == '__main__':
     som = SelfOrganisingMap(shape=[100,100,3], sigma=50., eta=10.)
 
-    x = [0.9, 0.95, 0.1]
+    x = [0.9, 0.4, 0.0]
 
     r,c = som.get_BMU(x)
     alpha = som.gauss(som.dist(r,c),0,som.sigma)
@@ -56,7 +57,7 @@ if __name__ == '__main__':
     updated = som.grid + delta * som.eta
 
     # Show the update process
-    for i, (title, img) in enumerate(zip(['original', 'dist', 'alpha', 'delta', 'updated'],[som.grid, som.dist(r,c), alpha, delta, updated])):
+    for i, (title, img) in enumerate(zip(['original', 'dist', 'alpha', 'delta', 'updated'], [som.grid, som.dist(r,c), alpha, delta, updated])):
         plt.subplot(1, 5, i+1)
         plt.title(title)
         plt.imshow(img,interpolation='none')
@@ -64,8 +65,8 @@ if __name__ == '__main__':
     plt.show()
 
     # Show an updated map
-    with TimeIt('mapping'):
-        [som.update(torch.rand(1000,device=device)) for _ in range(10000)]
+    for _ in tqdm(range(100000), unit='feature'):
+        som.update(torch.rand(3, device=device))
     
     plt.imshow(som.grid[:,:,:3])
     plt.show()

@@ -1,7 +1,8 @@
+import torch
 from torchvision import models, transforms
 from tqdm import tqdm
 from photo_library import PhotoLibrary
-
+import matplotlib.pyplot as plt
 
 
 class FeatureExtractor:
@@ -9,7 +10,7 @@ class FeatureExtractor:
         feature_dict = {}
         for file_name, img in tqdm(library, unit='image'):
             feature_dict[file_name] = self.process_img(img)
-        
+
         return feature_dict
 
     def process_img(self, img):
@@ -28,10 +29,13 @@ class FeatureExtractor:
         else:
             raise KeyError
 
+
 class MeanColor(FeatureExtractor):
     def __init__(self):
         super(MeanColor, self).__init__()
-        self.preprocess = transforms.ToTensor()
+        self.preprocess = transforms.Compose([
+            transforms.ToTensor(),
+        ])
 
     def process_img(self, img):
         preprocessed_img = self.preprocess(img)
@@ -52,10 +56,11 @@ class ResNet(FeatureExtractor):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
+        self.squash = torch.nn.Softmax()
 
     def process_img(self, img):
         preprocessed_img = self.preprocess(img)
-        return self.resnet(preprocessed_img.unsqueeze(0))
+        return self.squash(self.resnet(preprocessed_img.unsqueeze(0)))
 
     @property
     def feature_dim(self):
@@ -67,5 +72,7 @@ if __name__ == '__main__':
     it = iter(dset)
 
     extrator = ResNet()
+
+    filename, img = next(it)
 
     print(extrator.process_img(next(it)[1]))
