@@ -45,9 +45,11 @@ if __name__ == '__main__':
 
     plt.show()
 
-    for _ in range(20):
-        for feature in sample:
+    for j in range(20):
+        for i, feature in enumerate(sample):
             som.update(feature.cuda())
+            plt.imsave('som_%i_%i' % (j, i), som.grid)
+
 
     plt.imshow(som.grid)
     plt.show()
