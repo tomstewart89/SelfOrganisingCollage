@@ -11,7 +11,9 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 from photo_library import PhotoLibrary
 from SOM import SelfOrganisingMap
 from feature_extraction import FeatureExtractor
-from draw_samples import sample_from_unit_cube, sample_furthest_from_centroid
+from draw_samples import sample_from_unit_cube
+from patch_worker import Patchworker
+from utils import ravel_index, simplify_shape
 
 
 if __name__ == '__main__':
@@ -20,11 +22,17 @@ if __name__ == '__main__':
     parser.add_argument('--width', default=50, type=int)
     parser.add_argument('--height', default=35, type=int)
     parser.add_argument('--feature', default='mean_color', type=str)
+    parser.add_argument('--epochs', default=20, type=int)
+    parser.add_argument('--reuse_penalty', default=100., type=float)
+    parser.add_argument('--sample_size', default=1000, type=int)
+    parser.add_argument('--border', default=20, type=int)
+    parser.add_argument('--magnify', default=200, type=int)
     args = parser.parse_args()
 
     library = PhotoLibrary(args.directory)
     extractor = FeatureExtractor.factory(args.feature)
     som = SelfOrganisingMap(shape=[args.height, args.width, extractor.feature_dim], sigma=5., eta=1.)
+    patch = Patchworker([args.height, args.width])
 
     try:
         with open(os.path.join(args.directory, args.feature), "rb") as f:
@@ -35,131 +43,54 @@ if __name__ == '__main__':
         with open(os.path.join(args.directory, args.feature), "wb") as f:
             pickle.dump(feature_dict, f)
 
-    sample = sample_from_unit_cube(feature_dict, 1000)
+    # draw a subset of just the most interesting the entire photo library
+    sample, keys = sample_from_unit_cube(feature_dict, args.sample_size)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    for feature in sample:
-        ax.scatter(feature[0], feature[1], feature[2], c=feature, s=2)
-
-    plt.show()
-
-    for j in range(20):
-        for i, feature in enumerate(sample):
+    for _ in range(args.epochs):
+        for feature in sample[torch.randperm(args.sample_size),:]:
             som.update(feature.cuda())
-            plt.imsave('som_%i_%i' % (j, i), som.grid)
+
+    # now find the best vibing photo and stick it at its BMU
+    times_used = torch.zeros(len(sample)).unsqueeze(1).cuda()
+    layout = []
+
+    # I can omit the occupied parts of the grid to speed this up
+    while not patch.full():
+        dist = (sample.cuda().unsqueeze(1) - som.grid.reshape(-1,3).unsqueeze(0)).norm(dim=2)
+        dist += (times_used * args.reuse_penalty) # penalise the samples that have already been placed on the grid
+        dist[:, patch.occupied.reshape(-1)] = dist.max() # omit any neurons that already have a photo covering them
+
+        # find the neuron and sample that match most closely
+        winning_sample, winning_neuron = ravel_index(dist.argmin(), (som.grid.shape[0] * som.grid.shape[1]))
+        target_coord = torch.Tensor(ravel_index(winning_neuron, som.grid.shape[1]))
+        target_shape = simplify_shape(library[keys[winning_sample]].size)
+
+        # add the photo to the patch work
+        coord, shape = patch.add_patch(target_coord, target_shape)
+
+        layout.append([keys[winning_sample], coord, shape])
+
+        times_used[winning_sample] += 1
+        print('tick')
 
 
-    plt.imshow(som.grid)
+    canvas = PIL.Image.new("RGB", np.multiply(som.grid.shape[:2], args.magnify) + [args.border, args.border], "white")
+
+    for key, coord, shape in layout:
+        img = library[key]
+
+        size_tup = shape * args.magnify - args.border
+        coord_tup = coord * args.magnify + args.border
+
+        # crop the image so that it matches its shape
+        centroid = np.divide(img.size, 2)
+        scale = min(img.size[0] / shape[0], img.size[1] / shape[1])
+        dims = np.multiply(shape[i], scale)
+        box = (centroid[0] - dims[0] / 2, centroid[1] - dims[1] / 2, centroid[0] + dims[0] / 2, centroid[1] + dims[1] / 2)
+
+        canvas.paste(img.crop(box).resize(size_tup, PIL.Image.NEAREST), coord_tup)
+
+    plt.imshow(canvas)
     plt.show()
 
-    i = 5
-    #
-
-    # for i in range(20):
-    #     for feature in features_tensor[sampled,:]:
-    #         som.update(feature.cuda())
-
-    # for i in range(10):
-    #     for feature in tqdm(sorted(list(feature_dict.values()), key=lambda x: torch.norm(x-x.mean()), reverse=True), unit='image'):
-    #         som.update(feature.cuda())
-    # plt.imsave('som_%i' % i, som.grid/ som.grid.max())
-
-    # plt.imshow(som.grid)
-    # plt.show()
-
-
-
-
-
-
-
-
-
-    # random.shuffle(photos)
-
-
-    # plt.imshow(som.grid)
-    # plt.show()
-
-    # # returns the row / column indicies of the best matching unit for a given datapoint
-    # def getPhotoCoord(val, grid, occupancy):
-    #     idx = np.linalg.norm((grid + occupancy[:,:,np.newaxis] * 10000) - val, axis = 2).argmin()
-    #     return idx / grid.shape[1], idx % grid.shape[1]
-
-    # def getPhotoMatch(val, grid, occupancy):
-    #     return np.linalg.norm(val - grid[getPhotoCoord(val,grid,occupancy)])
-    # patch = Patchworker(som.grid.shape[:2])
-
-    # for photo in photos:
-    #     photo.coords = []
-    #     photo.shape = []
-    #     photo.placed = False
-
-    # while not patch.full():
-
-    #     # find the photo which best matches it's BMU
-    #     unusedPhotos = [photo for photo in photos if photo.placed == False]
-
-    #     if not len(unusedPhotos):
-    #         for photo in photos:
-    #             photo.placed = False
-    #         continue
-
-    #     idMin = np.array([getPhotoMatch(photo.val, som.grid, patch.occupied) for photo in unusedPhotos]).argmin()
-    #     BMP = unusedPhotos[idMin]
-
-    #     targetCoords = getPhotoCoord(BMP.val, som.grid, patch.occupied)
-    #     coords, shape = patch.addPatch(targetCoords, BMP.footprints)
-    #     BMP.coords.append(coords)
-    #     BMP.shape.append(shape)
-    #     BMP.placed = True
-
-    # colors = []; coords = []
-
-    # for photo in photos:
-    #     for coord in photo.coords:
-    #         coords.append(coord)
-
-    #     for coord in photo.coords:
-    #         colors.append(photo.val)
-
-    # coordArr = np.array(coords).astype(float)
-
-    # plt.xlim(-1, som.grid.shape[1])
-    # plt.ylim(-1, som.grid.shape[0])
-    # plt.scatter(coordArr[:,1], coordArr[:,0],color=colors,s=100)
-    # plt.show()
-
-    # plt.imshow(patch.occupied,interpolation='None')
-    # plt.show()
-
-
-
-
-    # border = 20
-    # magnify = 200
-    # canvas = PIL.Image.new("RGB", np.multiply(som.grid.shape[:2], magnify) + [border,border], "white")
-
-    # for photo in photos:
-    #     img = PIL.Image.open(photo.filepath)
-
-    #     for i in range(len(photo.coords)):
-    #         sizeTup = tuple(np.multiply(photo.shape[i], magnify) - border)
-    #         coordTup = tuple(photo.coords[i] * magnify + border)
-
-    #         # crop the image so that it matches its shape
-    #         centroid = np.divide(img.size, 2)
-    #         scale = min(img.size[0] / photo.shape[i][0], img.size[1] / photo.shape[i][1])
-    #         dims = np.multiply(photo.shape[i], scale)
-    #         box = (centroid[0] - dims[0] / 2, centroid[1] - dims[1] / 2, centroid[0] + dims[0] / 2, centroid[1] + dims[1] / 2)
-
-    #         canvas.paste(img.crop(box).resize(sizeTup,PIL.Image.NEAREST), coordTup)
-
-    # plt.imshow(canvas)
-    # plt.show()
-
-
-
-    # canvas.save('invite.png')
+    canvas.save('invite.png')
