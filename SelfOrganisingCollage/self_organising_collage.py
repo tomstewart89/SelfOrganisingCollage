@@ -6,7 +6,8 @@ import os
 import random
 from tqdm import tqdm
 import torch
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+from torchvision import models, transforms
+import PIL
 
 from photo_library import PhotoLibrary
 from SOM import SelfOrganisingMap
@@ -24,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--feature', default='mean_color', type=str)
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--reuse_penalty', default=100., type=float)
-    parser.add_argument('--sample_size', default=1000, type=int)
+    parser.add_argument('--sample_size', default=10, type=int)
     parser.add_argument('--border', default=20, type=int)
     parser.add_argument('--magnify', default=200, type=int)
     args = parser.parse_args()
@@ -74,21 +75,17 @@ if __name__ == '__main__':
         print('tick')
 
 
-    canvas = PIL.Image.new("RGB", np.multiply(som.grid.shape[:2], args.magnify) + [args.border, args.border], "white")
+    canvas = PIL.Image.new("RGB", tuple(np.array(som.grid.shape[:2]) * args.magnify + args.border), "white")
 
     for key, coord, shape in layout:
         img = library[key]
 
-        size_tup = shape * args.magnify - args.border
-        coord_tup = coord * args.magnify + args.border
+        size_tup = (shape * args.magnify - args.border).numpy()
+        coord_tup = (coord * args.magnify + args.border - shape / 2).numpy()
 
-        # crop the image so that it matches its shape
-        centroid = np.divide(img.size, 2)
-        scale = min(img.size[0] / shape[0], img.size[1] / shape[1])
-        dims = np.multiply(shape[i], scale)
-        box = (centroid[0] - dims[0] / 2, centroid[1] - dims[1] / 2, centroid[0] + dims[0] / 2, centroid[1] + dims[1] / 2)
+        crop = transforms.Compose([transforms.Resize(int(size_tup.min())), transforms.CenterCrop((size_tup[1],size_tup[0]))])
 
-        canvas.paste(img.crop(box).resize(size_tup, PIL.Image.NEAREST), coord_tup)
+        canvas.paste(crop(img), coord_tup)
 
     plt.imshow(canvas)
     plt.show()
