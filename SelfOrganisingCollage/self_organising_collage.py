@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--directory', default='/home/tom/Pictures/test_pics', type=str)
     parser.add_argument('--width', default=50, type=int)
     parser.add_argument('--height', default=35, type=int)
-    parser.add_argument('--feature', default='mean_color', type=str)
+    parser.add_argument('--feature', default='resnet', type=str)
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--reuse_penalty', default=100., type=float)
     parser.add_argument('--sample_size', default=10, type=int)
@@ -91,3 +91,4 @@ if __name__ == '__main__':
     plt.show()
 
     canvas.save('invite.png')
+    

@@ -30,6 +30,11 @@ def sample_furthest_from_centroid(feature_dict, N):
     raise NotImplementedError
 
 
+def sample_furthest_from_centroid(feature_dict, N):
+    '''Randomly pick a sample then pick samples that maximise the distance from the current sample's centroid'''
+    raise NotImplementedError
+
+
 if __name__ == '__main__':
     with open('/home/tom/Pictures/test_pics/mean_color', "rb") as f:
         feature_dict = pickle.load(f)

@@ -2,9 +2,30 @@ import time
 import json
 import torch
 import math
+from PIL import Image
 
 
-# Execution Timing
+convert_image = {
+    0: lambda img: img,
+    1: lambda img: img,
+    2: lambda img: img.transpose(Image.FLIP_LEFT_RIGHT),
+    3: lambda img: img.transpose(Image.ROTATE_180),
+    4: lambda img: img.transpose(Image.FLIP_TOP_BOTTOM),
+    5: lambda img: img.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.ROTATE_90),
+    6: lambda img: img.transpose(Image.ROTATE_270),
+    7: lambda img: img.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.ROTATE_270),
+    8: lambda img: img.transpose(Image.ROTATE_90),
+}
+
+def autorotate(img):
+    try:
+        img = convert_image[img._getexif().get(0x112, 1)](img)
+    except AttributeError: # if it doesn't have exif data then there's nothing to be done
+        pass
+
+    return img
+
+
 class TimeIt:
     def __init__(self, s):
         self.s = s
@@ -20,7 +41,7 @@ def flatten(list_of_lists):
     return [item for l in list_of_lists for item in l]
 
 
-def get_class_labels():
+def get_imagenet_class_labels():
     class_idx = json.load("imagenet_class_index.json")
     idx2label = [class_idx[str(k)][1] for k in range(len(class_idx))]
 
